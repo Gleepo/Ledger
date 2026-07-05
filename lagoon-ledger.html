@@ -337,10 +337,21 @@ function save(){
   }
 }
 function load(){
+  let raw=null;
   try{
-    const raw=localStorage.getItem(LS_KEY);
+    raw=localStorage.getItem(LS_KEY);
     if(raw){state=migrate(JSON.parse(raw));return true;}
-  }catch(e){console.warn('load failed',e);}
+  }catch(e){
+    console.warn('load failed',e);
+    // Data-loss guard: never reseed over a damaged budget. Preserve the raw
+    // value so it can be recovered, and warn before the next save clobbers it.
+    if(raw){
+      try{localStorage.setItem(LS_KEY+'.corrupt',raw);}catch(_){/* storage full — nothing more we can do */}
+      setTimeout(function(){
+        try{toast('Stored budget could not be read. The damaged copy was preserved at "'+LS_KEY+'.corrupt" — recover it (DevTools \u2192 Application \u2192 Local Storage) before making changes.',10000);}catch(_){}
+      },0);
+    }
+  }
   return false;
 }
 function migrate(s){ // tolerate older/partial shapes
